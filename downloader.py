@@ -183,19 +183,12 @@ def print_stats(cls, print_func):
     else:
         actual_processes_ratio = actual_all_time_spent / processes_all_time_spent
 
-    #print(f"actual all time: {actual_all_time_spent} proc all time {processes_all_time_spent}")
-
-    print_func(f'STATS For class {cls}:')
-    print_func(f' tried {multi_stats.get(cls, "tried")} urls with'
+    print_func(f'tried {multi_stats.get(cls, "tried")} urls with'
                f' {multi_stats.get(cls, "success")} successes')
 
     if multi_stats.get(cls, "tried") > 0:
         print_func(f'{100.0 * multi_stats.get(cls, "success")/multi_stats.get(cls, "tried")}% success rate for {cls} urls ')
-    if multi_stats.get(cls, "success") > 0:
-        print_func(f'{multi_stats.get(cls,"time_spent") * actual_processes_ratio / multi_stats.get(cls,"success")} seconds spent per {cls} succesful image download')
-
-
-
+                   
 lock = Lock()
 url_tries = Value('d', 0)
 scraping_t_start = Value('d', time.time())
@@ -204,13 +197,8 @@ class_images = Value('d', 0)
 
 def get_image(img_url):
 
-    #print(f'Processing {img_url}')
-
-    #time.sleep(3)
-
     if len(img_url) <= 1:
         return
-
 
     cls_imgs = 0
     with lock:
@@ -251,13 +239,9 @@ def get_image(img_url):
             exit()
         return
 
-
     with lock:
         url_tries.value += 1
         if url_tries.value % 250 == 0:
-            print(f'\nScraping stats:')
-            print_stats('is_flickr', print)
-            print_stats('not_flickr', print)
             print_stats('all', print)
             if args.debug:
                 add_stats_to_debug_csv()
@@ -297,7 +281,7 @@ def get_image(img_url):
     if (len(img_name) <= 1):
         return finish('failure')
 
-    img_file_path = os.path.join(class_folder, img_name)
+    img_file_path = os.path.join(imagenet_images_folder, img_name)
     logging.debug(f'Saving image in {img_file_path}')
 
     with open(img_file_path, 'wb') as img_f:
@@ -317,23 +301,13 @@ def get_image(img_url):
 for class_wnid in classes_to_scrape:
 
     class_name = class_info_dict[class_wnid]["class_name"]
-    print(f'Scraping images for class \"{class_name}\"')
     url_urls = IMAGENET_API_WNID_TO_URLS(class_wnid)
 
     time.sleep(0.05)
     resp = requests.get(url_urls)
-
-    class_folder = os.path.join(imagenet_images_folder, class_name)
-    if not os.path.exists(class_folder):
-        os.mkdir(class_folder)
-
     class_images.value = 0
 
     urls = [url.decode('utf-8') for url in resp.content.splitlines()]
 
-    #for url in  urls:
-    #    get_image(url)
-
-    print(f"Multiprocessing workers: {args.multiprocessing_workers}")
     with Pool(processes=args.multiprocessing_workers) as p:
         p.map(get_image,urls)
